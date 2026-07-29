@@ -1,24 +1,36 @@
 //
 //  ContentView.swift
-//  Ustastrikk
-//
-//  Created by Joakim Warholm on 29/07/2026.
+//  Ustastrikk (Strikkerikke)
 //
 
 import SwiftUI
 
+/// Rot-visningen med en fanelinje nederst, slik at både prosjekter og
+/// rad-telleren alltid er ett trykk unna.
 struct ContentView: View {
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        TabView {
+            NavigationStack {
+                ProsjektListeView()
+            }
+            .tabItem {
+                Label("Prosjekter", systemImage: "square.stack.3d.up.fill")
+            }
+
+            NavigationStack {
+                RadTellerView()
+            }
+            .tabItem {
+                Label("Rad-teller", systemImage: "number.circle.fill")
+            }
         }
-        .padding()
+        .tint(Theme.accent)
+        .fontDesign(.rounded)
+        .preferredColorScheme(.light)
     }
 }
 
 #Preview {
     ContentView()
+        .environment(StrikkeStore())
 }
