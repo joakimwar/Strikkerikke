@@ -3,7 +3,7 @@
  *
  * Port av Stopwatch/Round/Project fra StrikkeStore.swift. Eneste forskjell:
  * tid måles i millisekunder (Date.now()) i stedet for sekunder, og bilder
- * ligger i IndexedDB med en nøkkel her i stedet for rå Data i modellen.
+ * ligger i Supabase Storage med en sti her i stedet for rå Data i modellen.
  */
 
 /** En stoppeklokke som kan pauses og gjenopptas. */
@@ -28,10 +28,13 @@ export interface Project {
   /** Hvilken omgang du er på nå (0-basert). Blir lik rounds.length når prosjektet er fullført. */
   currentRoundIndex: number
   notes: string
-  /** Nøkkel til bildet i IndexedDB, eller null. */
-  photoId: string | null
+  /** Sti til bildet i Supabase Storage, eller null. */
+  photoPath: string | null
   stopwatch: Stopwatch
 }
+
+/** Hvor langt lageret har kommet med å hente dataene fra Supabase. */
+export type LoadStatus = 'laster' | 'klar' | 'feil'
 
 /** Hele appens tilstand. */
 export interface State {
@@ -42,6 +45,13 @@ export interface State {
   rowStopwatch: Stopwatch
   /** Tid brukt på den inneværende raden (nullstilles hver gang du øker rad-tallet). */
   currentRowStopwatch: Stopwatch
+  /** Status for hentingen av dataene. */
+  status: LoadStatus
+  /**
+   * Satt når en lagring mot Supabase mislyktes. Da er skjermen foran deg ikke
+   * lenger i synk med databasen, og brukeren må hente inn på nytt.
+   */
+  saveError: string | null
 }
 
 export const newStopwatch = (): Stopwatch => ({ accumulated: 0, startedAt: null })
@@ -72,6 +82,8 @@ export const emptyState = (): State => ({
   rowCount: 0,
   rowStopwatch: newStopwatch(),
   currentRowStopwatch: newStopwatch(),
+  status: 'laster',
+  saveError: null,
 })
 
 export const newProject = (name: string): Project => ({
@@ -80,7 +92,7 @@ export const newProject = (name: string): Project => ({
   rounds: [],
   currentRoundIndex: 0,
   notes: '',
-  photoId: null,
+  photoPath: null,
   stopwatch: newStopwatch(),
 })
 

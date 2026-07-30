@@ -1,0 +1,54 @@
+name: Deploy web til GitHub Pages
+
+on:
+  push:
+    branches: [web]
+  # Lar deg kjøre en utrulling for hånd fra Actions-fanen.
+  workflow_dispatch:
+
+# GITHUB_TOKEN trenger disse for å publisere til Pages.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Én utrulling om gangen. Pågående kjøring får bli ferdig, så et halvferdig
+# bygg aldri havner ute.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - run: npm ci
+
+      # Bygger med tsc først, så en typefeil stopper utrullingen.
+      # Oppsettet mot Supabase leses fra web/.env, som ligger i git.
+      - run: npm run build
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

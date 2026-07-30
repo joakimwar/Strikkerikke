@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { getPhoto } from './db'
+import { photoUrl } from './photos'
 
 /**
  * Returnerer Date.now() og oppdaterer hvert sekund så lenge `active` er true.
@@ -83,31 +83,26 @@ export function useWakeLock(active: boolean) {
   }, [active])
 }
 
-/** Henter et prosjektbilde fra IndexedDB som en object-URL, og rydder opp etter seg. */
-export function usePhotoUrl(photoId: string | null): string | null {
+/**
+ * Henter en visnings-URL for et prosjektbilde. Bøtta i Supabase Storage er
+ * privat, så URL-en er signert og hentes på nytt hver gang stien endrer seg.
+ */
+export function usePhotoUrl(path: string | null): string | null {
   const [url, setUrl] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!photoId) {
-      setUrl(null)
-      return
-    }
+    setUrl(null)
+    if (!path) return
 
-    let objectUrl: string | null = null
     let cancelled = false
-
-    void getPhoto(photoId).then((blob) => {
-      if (cancelled || !blob) return
-      objectUrl = URL.createObjectURL(blob)
-      setUrl(objectUrl)
+    void photoUrl(path).then((signed) => {
+      if (!cancelled) setUrl(signed)
     })
 
     return () => {
       cancelled = true
-      if (objectUrl) URL.revokeObjectURL(objectUrl)
-      setUrl(null)
     }
-  }, [photoId])
+  }, [path])
 
   return url
 }

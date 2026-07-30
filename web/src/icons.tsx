@@ -179,3 +179,24 @@ export const Undo = (p: IconProps) => (
     <path {...stroke} d="M6.5 4.5L2.5 9l4 4.5" />
   </Svg>
 )
+
+export const Person = (p: IconProps) => (
+  <Svg {...p}>
+    <circle {...stroke} cx="12" cy="8" r="3.5" />
+    <path {...stroke} d="M4.5 20a7.5 7.5 0 0 1 15 0" />
+  </Svg>
+)
+
+export const SignOut = (p: IconProps) => (
+  <Svg {...p}>
+    <path {...stroke} d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" />
+    <path {...stroke} d="M10 8l-4 4 4 4M6 12h9" />
+  </Svg>
+)
+
+export const Warning = (p: IconProps) => (
+  <Svg {...p}>
+    <path {...stroke} d="M12 4.5 2.8 20h18.4L12 4.5Z" />
+    <path {...stroke} d="M12 10v4M12 17.2v.1" />
+  </Svg>
+)

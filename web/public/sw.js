@@ -1,8 +1,13 @@
 /*
- * Service worker for offline-bruk.
+ * Service worker for app-skallet.
  *
- * Strategien er enkel med vilje: appen har ingen server å snakke med, så alt
- * som lastes ned kan trygt caches.
+ * Merk: dette gir rask oppstart, ikke offline-bruk. Prosjektene ligger i
+ * Supabase, og de kallene går til et annet origin – som denne workeren med
+ * vilje ikke rører (se origin-sjekken i fetch under). Uten nett laster altså
+ * skallet, men dataene kommer ikke.
+ *
+ * Strategien for skallet er enkel med vilje: alt som lastes ned herfra kan
+ * trygt caches, siden byggefilene har hash i navnet.
  *
  * Ved installasjon henter vi app-skallet og leser ut hvilke hashede JS/CSS-filer
  * det peker på, og cacher dem. Det er nødvendig fordi service workeren ikke
@@ -12,7 +17,7 @@
  * med hasher i sync med byggeprosessen.
  */
 
-const CACHE = 'ustastrikk-v2'
+const CACHE = 'ustastrikk-v3'
 const SHELL = './'
 const EXTRAS = ['./manifest.webmanifest', './icon-180.png', './icon-192.png', './icon-512.png']
 

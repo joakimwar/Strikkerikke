@@ -15,29 +15,49 @@ npm run build    # produksjonsbygg til dist/
 npm run preview  # se på produksjonsbygget lokalt
 ```
 
+## Konto og data
+
+Alt innhold ligger på en brukerkonto i Supabase, ikke i nettleseren. Du logger
+inn med e-post og passord, og prosjektene følger deg mellom telefon og PC.
+
+- **Tabeller:** `projects`, `rounds` og `row_counter`, alle med radsikkerhet
+  (RLS) som låser hver rad til `user_id`. En innlogget bruker når kun sine egne.
+- **Bilder:** privat bøtte i Supabase Storage (`prosjektbilder`), under
+  `<bruker-id>/<uuid>.jpg`. Vises via signerte URL-er.
+- **Oppsett:** `web/.env` peker på Supabase-prosjektet. Fila ligger med vilje i
+  git – den publiserbare nøkkelen er laget for å stå åpent i klientkoden, og
+  havner uansett i den ferdigbygde JS-fila. Det er RLS som beskytter dataene.
+
+**Appen krever nett.** Uten forbindelse laster skallet, men prosjektene kommer
+ikke. Det er et bevisst valg: databasen er eneste kilde til sannhet, så det
+finnes ingen lokal kopi som kan komme i utakt.
+
 ## Legg til på Hjem-skjerm på iPhone
 
 Appen er en PWA. Åpne siden i Safari → Del → «Legg til på Hjem-skjerm».
-Da får den eget ikon, kjører uten nettleserramme, og virker offline.
-Ingen 7-dagers utløp, ingen utviklermodus.
+Da får den eget ikon og kjører uten nettleserramme. Ingen 7-dagers utløp,
+ingen utviklermodus.
 
-Merk: `display: standalone` og offline-cachen krever HTTPS (eller localhost).
-På `http://` fungerer appen fint, men uten offline-støtte.
+Merk: `display: standalone` krever HTTPS (eller localhost). Service workeren
+cacher app-skallet for rask oppstart, men ikke dataene – se over.
 
 ## Publisering
 
+Rulles ut til GitHub Pages av `.github/workflows/deploy.yml` ved hvert push til
+`web`-grenen. Arbeidsflyten kjører `npm ci` og `npm run build` (som typesjekker
+først, så en typefeil stopper utrullingen) og publiserer `web/dist`.
+
 `dist/` er helt statisk og trenger ingen server. `base` er satt til `./` og
 rutingen er hash-basert, så mappa kan ligge hvor som helst – rot-domene eller
-undermappe – uten omkonfigurering. Testet fra en undermappe.
-
-Fungerer på GitHub Pages, Netlify, Cloudflare Pages, eller en vanlig webserver.
+undermappe – uten omkonfigurering.
 
 ## Hvordan koden henger sammen med SwiftUI-versjonen
 
 | SwiftUI | Web |
 | --- | --- |
 | `StrikkeStore` (`@Observable`) | `src/store.ts` (`useSyncExternalStore`) |
-| `UserDefaults` | `localStorage` for tilstand, IndexedDB for bilder |
+| `UserDefaults` | Supabase-tabeller, bilder i Supabase Storage |
+| – (ingen innlogging) | `src/auth.ts` + `src/components/Auth.tsx` |
 | `Stopwatch`, `Round`, `Project` | `src/model.ts` (samme felt, tid i ms) |
 | `ContentView` (TabView) | `src/App.tsx` + hash-ruting |
 | `ProsjektListeView` | `src/components/ProjectList.tsx` |
@@ -53,9 +73,12 @@ Fungerer på GitHub Pages, Netlify, Cloudflare Pages, eller en vanlig webserver.
 
 ## Bevisste forskjeller
 
-- **Bilder i IndexedDB.** Bildene skaleres til 1200 px JPEG (som i Swift-koden),
-  men lagres som Blob i IndexedDB i stedet for base64 i `localStorage`. Et bilde
-  blir fort et par hundre kB, og `localStorage` sprekker rundt 5 MB.
+- **Konto og synk.** iOS-appen lagret alt lokalt i `UserDefaults`. Web-versjonen
+  krever innlogging og lagrer i Supabase, slik at de samme prosjektene finnes på
+  telefonen og PC-en. Prisen er at appen ikke virker uten nett.
+- **Bilder i Supabase Storage.** Bildene skaleres fortsatt til 1200 px JPEG (som
+  i Swift-koden), men lastes opp i stedet for å lagres lokalt, så de følger
+  kontoen til en ny enhet.
 - **Omganger flyttes med piltaster** i stedet for dra-og-slipp. SwiftUI hadde
   `.onMove` med `EditButton`; HTML-ens dra-og-slipp fungerer ikke på iOS-touch.
 - **Slett prosjekt** ligger som en knapp nederst på prosjektsiden, med

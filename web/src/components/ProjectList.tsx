@@ -5,9 +5,10 @@
 
 import { useState } from 'react'
 import { actions, useStore } from '../store'
+import { auth, useAuth } from '../auth'
 import { navigate, usePhotoUrl } from '../hooks'
-import { ChevronRight, Plus, Scissors, Stack } from '../icons'
-import { Dialog, EmptyState, Navbar } from './chrome'
+import { ChevronRight, Person, Plus, Scissors, SignOut, Stack } from '../icons'
+import { Dialog, EmptyState, Menu, MenuItem, Navbar } from './chrome'
 import type { Project } from '../model'
 
 function statusText(project: Project): string {
@@ -19,7 +20,7 @@ function statusText(project: Project): string {
 }
 
 function Thumbnail({ project }: { project: Project }) {
-  const url = usePhotoUrl(project.photoId)
+  const url = usePhotoUrl(project.photoPath)
 
   if (url) {
     return <img className="thumb" src={url} alt="" />
@@ -33,7 +34,9 @@ function Thumbnail({ project }: { project: Project }) {
 
 export function ProjectList() {
   const { projects } = useStore()
+  const { session } = useAuth()
   const [showingAddDialog, setShowingAddDialog] = useState(false)
+  const [confirmingSignOut, setConfirmingSignOut] = useState(false)
 
   return (
     <>
@@ -41,14 +44,27 @@ export function ProjectList() {
         title="Prosjekter"
         large
         trailing={
-          <button
-            type="button"
-            className="iconbutton"
-            onClick={() => setShowingAddDialog(true)}
-          >
-            <Plus size={24} />
-            <span className="visually-hidden">Nytt prosjekt</span>
-          </button>
+          <>
+            <button
+              type="button"
+              className="iconbutton"
+              onClick={() => setShowingAddDialog(true)}
+            >
+              <Plus size={24} />
+              <span className="visually-hidden">Nytt prosjekt</span>
+            </button>
+
+            <Menu label={<Person size={24} />}>
+              <p className="menu__label">{session?.user.email}</p>
+              <MenuItem
+                icon={<SignOut size={18} />}
+                destructive
+                onClick={() => setConfirmingSignOut(true)}
+              >
+                Logg ut
+              </MenuItem>
+            </Menu>
+          </>
         }
       />
 
@@ -94,6 +110,17 @@ export function ProjectList() {
             navigate(`prosjekter/${project.id}`)
           }}
           onCancel={() => setShowingAddDialog(false)}
+        />
+      )}
+
+      {confirmingSignOut && (
+        <Dialog
+          title="Logg ut?"
+          message="Prosjektene blir liggende trygt på kontoen din, og kommer tilbake neste gang du logger inn."
+          confirmLabel="Logg ut"
+          destructive
+          onConfirm={() => void auth.signOut()}
+          onCancel={() => setConfirmingSignOut(false)}
         />
       )}
     </>

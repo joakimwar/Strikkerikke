@@ -8,25 +8,92 @@
  *   #/prosjekter/:id        detaljer
  *   #/prosjekter/:id/strikk strikkemodus
  *   #/rad                   rad-teller
+ *
+ * Alt innhold ligger på brukerens konto, så visningen er delt i tre: laster
+ * økta, ikke innlogget (AuthScreen), eller innlogget med data fra Supabase.
  */
 
 import { navigate, useHashRoute } from './hooks'
-import { useProject } from './store'
-import { Hash, Stack } from './icons'
+import { actions, useProject, useStore } from './store'
+import { useAuth } from './auth'
+import { configError } from './supabase'
+import { Hash, Stack, Warning } from './icons'
 import { EmptyState, Navbar } from './components/chrome'
+import { AuthScreen } from './components/Auth'
 import { ProjectList } from './components/ProjectList'
 import { ProjectDetail } from './components/ProjectDetail'
 import { KnitMode } from './components/KnitMode'
 import { RowCounter } from './components/RowCounter'
 
 export function App() {
+  const { session, status: authStatus } = useAuth()
+  const { status, saveError } = useStore()
   const segments = useHashRoute()
   const tab = segments[0] === 'rad' ? 'rad' : 'prosjekter'
   const projectId = tab === 'prosjekter' ? segments[1] : undefined
   const project = useProject(projectId)
 
+  // Feil oppsett av miljøvariablene ville ellers gitt en blank side.
+  if (configError) {
+    return (
+      <div className="app">
+        <main className="content">
+          <EmptyState icon={<Warning size={52} />} title="Appen mangler oppsett" body={configError} />
+        </main>
+      </div>
+    )
+  }
+
+  // Vent til vi vet om det finnes en lagret økt, så innloggingsskjermen ikke
+  // blinker forbi for en som allerede er innlogget.
+  if (authStatus === 'laster') return <div className="app" />
+
+  if (!session) return <AuthScreen />
+
+  if (status === 'laster') {
+    return (
+      <div className="app">
+        <main className="content">
+          <EmptyState
+            icon={<Stack size={52} />}
+            title="Henter prosjektene dine …"
+            body="Det tar bare et øyeblikk."
+          />
+        </main>
+      </div>
+    )
+  }
+
+  if (status === 'feil') {
+    return (
+      <div className="app">
+        <main className="content">
+          <EmptyState
+            icon={<Warning size={52} />}
+            title="Fikk ikke tak i dataene"
+            body="Appen trenger nett for å hente prosjektene dine. Sjekk forbindelsen og prøv igjen."
+          />
+          <button type="button" className="button button--prominent" onClick={actions.reload}>
+            Prøv igjen
+          </button>
+        </main>
+      </div>
+    )
+  }
+
   return (
     <div className="app">
+      {/* Lagringen har feilet: det du ser er ikke lenger det som står i databasen. */}
+      {saveError && (
+        <div className="banner" role="alert">
+          <Warning size={18} />
+          <span className="banner__text">{saveError}</span>
+          <button type="button" className="banner__action" onClick={actions.reload}>
+            Hent inn
+          </button>
+        </div>
+      )}
+
       {renderScreen()}
 
       <nav className="tabbar">

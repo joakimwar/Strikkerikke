@@ -7,7 +7,6 @@ import { useRef, useState } from 'react'
 import { actions } from '../store'
 import { navigate, usePhotoUrl } from '../hooks'
 import { downscaleImage } from '../image'
-import { putPhoto } from '../db'
 import { elapsed, type Project } from '../model'
 import {
   ArrowDown,
@@ -22,15 +21,19 @@ import { Dialog, Navbar, Section } from './chrome'
 import { ElapsedTime } from './ElapsedTime'
 
 export function ProjectDetail({ project }: { project: Project }) {
-  const photoUrl = usePhotoUrl(project.photoId)
+  const photoUrl = usePhotoUrl(project.photoPath)
   const fileRef = useRef<HTMLInputElement>(null)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  // Bildet skal opp til Supabase Storage, så det tar litt tid på mobilnett.
+  const [uploading, setUploading] = useState(false)
 
   const pickPhoto = async (file: File) => {
-    const blob = await downscaleImage(file)
-    const photoId = crypto.randomUUID()
-    await putPhoto(photoId, blob)
-    actions.setPhoto(project.id, photoId)
+    setUploading(true)
+    try {
+      await actions.setPhoto(project.id, await downscaleImage(file))
+    } finally {
+      setUploading(false)
+    }
   }
 
   return (
@@ -61,16 +64,27 @@ export function ProjectDetail({ project }: { project: Project }) {
               event.target.value = ''
             }}
           />
-          <button type="button" className="row row--action" onClick={() => fileRef.current?.click()}>
+          <button
+            type="button"
+            className="row row--action"
+            disabled={uploading}
+            onClick={() => fileRef.current?.click()}
+          >
             <Photo />
-            <span>{project.photoId === null ? 'Legg til bilde' : 'Bytt bilde'}</span>
+            <span>
+              {uploading
+                ? 'Laster opp …'
+                : project.photoPath === null
+                  ? 'Legg til bilde'
+                  : 'Bytt bilde'}
+            </span>
           </button>
 
-          {project.photoId !== null && (
+          {project.photoPath !== null && !uploading && (
             <button
               type="button"
               className="row row--destructive"
-              onClick={() => actions.setPhoto(project.id, null)}
+              onClick={() => void actions.setPhoto(project.id, null)}
             >
               <Trash />
               <span>Fjern bilde</span>
