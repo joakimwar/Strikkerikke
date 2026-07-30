@@ -51,6 +51,47 @@ Pushing to the `web` branch deploys to GitHub Pages via
 The Xcode project builds for iOS/macOS/visionOS with bundle id `none.Ustastrikk` and
 has no test targets.
 
+## Where it runs
+
+| | |
+| --- | --- |
+| Live site | <https://joakimwar.github.io/Strikkerikke/> |
+| Repo | `joakimwar/Strikkerikke`, default branch `web`, **public** |
+| Supabase project | `Strikketrikke`, ref `vrmtxpezbicynkcirzoz`, region eu-central-1 |
+
+Three names for one app, and they do not match: the Xcode target is **Ustastrikk**,
+the repo and the login screen say **Strikkerikke**, and the Supabase project is
+**Strikketrikke**. Nothing depends on them agreeing — just do not assume a search for
+one name finds the others.
+
+The repo is public because GitHub Pages only serves from public repos on a free
+account. That is why nothing secret may enter this repository.
+
+### The free-tier pause is the first thing to check when data will not load
+
+**Supabase pauses free-plan projects after ~7 days of low activity.** A few database
+requests a day is enough to prevent it. Two other projects in this org are already
+paused, and the org is capped at 2 active projects.
+
+When it happens, the *site* stays up — Pages has no expiry and is unaffected — but
+every API call fails, so the app lands on the "Fikk ikke tak i dataene" screen with
+its "Prøv igjen" button. That screen is the error path working correctly, **not a
+bug**. Before debugging any code that reports failing requests or a stuck loading
+state, check whether the project is paused (`get_project` via the Supabase MCP, or
+the dashboard) and restore it if so.
+
+Pausing does **not** delete data: a restored project comes back with its data and
+configuration intact, and there is a 1-year window to restore it. Data is only at
+risk if the project sits paused for over a year.
+
+Quotas are not a concern at this scale — 500 MB database, 1 GB file storage, 5 GB
+egress, 50k monthly active users. Photos are downscaled to ~200–400 kB, so file
+storage is the first thing that would bind, at a couple of thousand project photos.
+
+There is no keep-warm job. If the pausing becomes annoying, the options are a
+scheduled workflow that pings the REST API daily, or the Pro plan; do not add one
+without asking, since it is a deliberate open question.
+
 ## Architecture
 
 ### State lives in one mutable store, not in React state
