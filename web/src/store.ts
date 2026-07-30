@@ -277,24 +277,35 @@ function saveRowCounter() {
 }
 
 /**
- * Skriver omgangene til ett prosjekt på nytt med rekkefølgen de har lokalt.
- * Brukes når en omgang flyttes; position blir da lik indeksen i listen.
+ * Skriver omgangene til ett prosjekt på nytt med rekkefølgen de har lokalt,
+ * slik at position alltid er 0..n-1 uten hull.
+ *
+ * At den er tett er ikke bare pynt: addRound bruker antall omganger som
+ * position for den nye. Hadde vi latt hull stå igjen etter en sletting, ville
+ * den nye omgangen fått samme position som en som allerede fantes, og
+ * rekkefølgen blitt tilfeldig.
  */
 function saveRoundOrder(projectId: string) {
-  const id = userId
-  const project = findProject(projectId)
-  if (!id || !project) return
+  debounce(
+    `project:${projectId}:order`,
+    () => {
+      const id = userId
+      const project = findProject(projectId)
+      if (!id || !project || project.rounds.length === 0) return
 
-  write(() =>
-    supabase.from('rounds').upsert(
-      project.rounds.map((round, index) => ({
-        id: round.id,
-        project_id: projectId,
-        user_id: id,
-        pattern: round.pattern,
-        position: index,
-      })),
-    ),
+      write(() =>
+        supabase.from('rounds').upsert(
+          project.rounds.map((round, index) => ({
+            id: round.id,
+            project_id: projectId,
+            user_id: id,
+            pattern: round.pattern,
+            position: index,
+          })),
+        ),
+      )
+    },
+    PROGRESS_DELAY,
   )
 }
 
@@ -428,6 +439,10 @@ export const actions = {
     )
 
     write(() => supabase.from('rounds').delete().eq('id', roundId))
+    // Tett igjen hullet sletting etterlot i position (se saveRoundOrder).
+    // De to skrivingene rører ulike rader, så rekkefølgen mellom dem spiller
+    // ingen rolle.
+    saveRoundOrder(id)
     saveProgress(id)
   },
 
