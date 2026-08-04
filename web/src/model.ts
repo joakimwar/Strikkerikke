@@ -33,12 +33,39 @@ export interface Project {
   stopwatch: Stopwatch
 }
 
+/**
+ * Én farge du har av et garn, med hvor mange nøster som ligger i lageret.
+ *
+ * Fargen – ikke garnet – er det som knyttes til et prosjekt, slik at samme
+ * garn kan ha én farge satt av til lua og en annen til genseren.
+ */
+export interface YarnColor {
+  id: string
+  /** Fargekoden produsenten bruker, f.eks. «1015» eller «Lys grå». */
+  code: string
+  /** Antall nøster du har igjen av denne fargen. */
+  skeins: number
+  /** Prosjektet fargen er satt av til, eller null når den ikke er lovet bort. */
+  projectId: string | null
+}
+
+/** Et garn i lageret: selve garntypen, med fargene du har det i. */
+export interface Yarn {
+  id: string
+  name: string
+  /** Tykkelse/størrelse som fritekst, f.eks. «Tynt garn, pinne 3». */
+  weight: string
+  colors: YarnColor[]
+}
+
 /** Hvor langt lageret har kommet med å hente dataene fra Supabase. */
 export type LoadStatus = 'laster' | 'klar' | 'feil'
 
 /** Hele appens tilstand. */
 export interface State {
   projects: Project[]
+  /** Garnlageret. */
+  yarns: Yarn[]
   /** Verdien i rad-telleren (delt på tvers av prosjekter, som i iOS-appen). */
   rowCount: number
   /** Total strikketid for rad-telleren. */
@@ -79,6 +106,7 @@ export const reset = (): Stopwatch => newStopwatch()
 
 export const emptyState = (): State => ({
   projects: [],
+  yarns: [],
   rowCount: 0,
   rowStopwatch: newStopwatch(),
   currentRowStopwatch: newStopwatch(),
@@ -97,6 +125,26 @@ export const newProject = (name: string): Project => ({
 })
 
 export const newRound = (): Round => ({ id: crypto.randomUUID(), pattern: '' })
+
+export const newYarn = (name: string): Yarn => ({
+  id: crypto.randomUUID(),
+  name,
+  weight: '',
+  colors: [],
+})
+
+// Ett nøste er den vanligste starten – du legger sjelden inn en farge du har
+// null av.
+export const newYarnColor = (): YarnColor => ({
+  id: crypto.randomUUID(),
+  code: '',
+  skeins: 1,
+  projectId: null,
+})
+
+/** Samlet antall nøster på tvers av fargene i et garn. */
+export const totalSkeins = (yarn: Yarn): number =>
+  yarn.colors.reduce((sum, color) => sum + color.skeins, 0)
 
 /** True når prosjektet har omganger og alle er fullført. */
 export const isFinished = (project: Project): boolean =>

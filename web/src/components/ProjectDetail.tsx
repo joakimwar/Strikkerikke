@@ -4,28 +4,39 @@
  */
 
 import { useRef, useState } from 'react'
-import { actions } from '../store'
+import { actions, useStore } from '../store'
 import { navigate, usePhotoUrl } from '../hooks'
 import { downscaleImage } from '../image'
 import { elapsed, type Project } from '../model'
 import {
   ArrowDown,
   ArrowUp,
+  ChevronRight,
   Photo,
   Play,
   Plus,
   Timer,
   Trash,
+  Yarn as YarnIcon,
 } from '../icons'
 import { Dialog, Navbar, Section } from './chrome'
 import { ElapsedTime } from './ElapsedTime'
 
 export function ProjectDetail({ project }: { project: Project }) {
+  const { yarns } = useStore()
   const photoUrl = usePhotoUrl(project.photoPath)
   const fileRef = useRef<HTMLInputElement>(null)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   // Bildet skal opp til Supabase Storage, så det tar litt tid på mobilnett.
   const [uploading, setUploading] = useState(false)
+
+  // Garnfargene som er satt av til dette prosjektet. Koblingen ligger på
+  // fargen, så ett garn kan stå her med flere farger.
+  const yarnColors = yarns.flatMap((yarn) =>
+    yarn.colors
+      .filter((color) => color.projectId === project.id)
+      .map((color) => ({ yarn, color })),
+  )
 
   const pickPhoto = async (file: File) => {
     setUploading(true)
@@ -100,6 +111,42 @@ export function ProjectDetail({ project }: { project: Project }) {
             value={project.notes}
             onChange={(event) => actions.setNotes(project.id, event.target.value)}
           />
+        </Section>
+
+        <Section
+          header="Garn"
+          footer={
+            yarnColors.length === 0
+              ? 'Sett av en farge til prosjektet i Garnlageret, så dukker den opp her.'
+              : undefined
+          }
+        >
+          {yarnColors.length === 0 ? (
+            <button type="button" className="row row--action" onClick={() => navigate('garn')}>
+              <YarnIcon />
+              <span>Til garnlageret</span>
+            </button>
+          ) : (
+            yarnColors.map(({ yarn, color }) => (
+              <button
+                key={color.id}
+                type="button"
+                className="row"
+                onClick={() => navigate(`garn/${yarn.id}`)}
+              >
+                <YarnIcon />
+                <span className="row__grow">
+                  <span className="row__title">
+                    {yarn.name.trim() === '' ? 'Uten navn' : yarn.name}
+                  </span>
+                  <span className="row__subtitle">
+                    {color.code.trim() === '' ? 'Uten fargekode' : color.code}
+                  </span>
+                </span>
+                <ChevronRight size={18} className="row__chevron" />
+              </button>
+            ))
+          )}
         </Section>
 
         <Section

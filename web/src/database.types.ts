@@ -121,6 +121,78 @@ export type Database = {
         }
         Relationships: []
       }
+      yarns: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+          weight: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id: string
+          weight?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+          weight?: string
+        }
+        Relationships: []
+      }
+      yarn_colors: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          project_id: string | null
+          skeins: number
+          user_id: string
+          yarn_id: string
+        }
+        Insert: {
+          code?: string
+          created_at?: string
+          id?: string
+          project_id?: string | null
+          skeins?: number
+          user_id: string
+          yarn_id: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          project_id?: string | null
+          skeins?: number
+          user_id?: string
+          yarn_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "yarn_colors_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "yarn_colors_yarn_id_fkey"
+            columns: ["yarn_id"]
+            isOneToOne: false
+            referencedRelation: "yarns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

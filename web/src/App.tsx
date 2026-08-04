@@ -7,6 +7,8 @@
  *   #/prosjekter            liste
  *   #/prosjekter/:id        detaljer
  *   #/prosjekter/:id/strikk strikkemodus
+ *   #/garn                  garnlager
+ *   #/garn/:id              ett garn
  *   #/rad                   rad-teller
  *
  * Alt innhold ligger på brukerens konto, så visningen er delt i tre: laster
@@ -14,24 +16,29 @@
  */
 
 import { navigate, useHashRoute } from './hooks'
-import { actions, useProject, useStore } from './store'
+import { actions, useProject, useStore, useYarn } from './store'
 import { useAuth } from './auth'
 import { configError } from './supabase'
-import { Hash, Stack, Warning } from './icons'
+import { Hash, Stack, Warning, Yarn as YarnIcon } from './icons'
 import { EmptyState, Navbar } from './components/chrome'
 import { AuthScreen } from './components/Auth'
 import { ProjectList } from './components/ProjectList'
 import { ProjectDetail } from './components/ProjectDetail'
 import { KnitMode } from './components/KnitMode'
 import { RowCounter } from './components/RowCounter'
+import { YarnList } from './components/YarnList'
+import { YarnDetail } from './components/YarnDetail'
 
 export function App() {
   const { session, status: authStatus } = useAuth()
   const { status, saveError } = useStore()
   const segments = useHashRoute()
-  const tab = segments[0] === 'rad' ? 'rad' : 'prosjekter'
+  const tab =
+    segments[0] === 'rad' ? 'rad' : segments[0] === 'garn' ? 'garn' : 'prosjekter'
   const projectId = tab === 'prosjekter' ? segments[1] : undefined
   const project = useProject(projectId)
+  const yarnId = tab === 'garn' ? segments[1] : undefined
+  const yarn = useYarn(yarnId)
 
   // Feil oppsett av miljøvariablene ville ellers gitt en blank side.
   if (configError) {
@@ -109,6 +116,15 @@ export function App() {
         <button
           type="button"
           className="tabbar__item"
+          aria-current={tab === 'garn' ? 'page' : undefined}
+          onClick={() => navigate('garn')}
+        >
+          <YarnIcon size={24} />
+          Garnlager
+        </button>
+        <button
+          type="button"
+          className="tabbar__item"
           aria-current={tab === 'rad' ? 'page' : undefined}
           onClick={() => navigate('rad')}
         >
@@ -121,6 +137,35 @@ export function App() {
 
   function renderScreen() {
     if (tab === 'rad') return <RowCounter />
+
+    if (tab === 'garn') {
+      if (yarnId) {
+        if (!yarn) {
+          // Lenke til et garn som er slettet (eller en ugyldig adresse).
+          return (
+            <>
+              <Navbar title="Garn" back />
+              <main className="content">
+                <EmptyState
+                  icon={<YarnIcon size={52} />}
+                  title="Finner ikke garnet"
+                  body="Det ble kanskje slettet. Gå tilbake til lageret for å velge et annet."
+                />
+                <button
+                  type="button"
+                  className="button button--prominent"
+                  onClick={() => navigate('garn')}
+                >
+                  Til garnlageret
+                </button>
+              </main>
+            </>
+          )
+        }
+        return <YarnDetail yarn={yarn} />
+      }
+      return <YarnList />
+    }
 
     if (projectId) {
       if (!project) {

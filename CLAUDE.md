@@ -115,6 +115,13 @@ There is no `localStorage` copy of the data and no offline mode. The in-memory
 
 - **State** (projects, rounds, counters, stopwatches) → the `projects`, `rounds` and
   `row_counter` tables, all with RLS locking every row to `user_id`.
+- **Yarn stash** → `yarns` (name + weight) and `yarn_colors` (colour code, number of
+  skeins, optional `project_id`), same RLS. The project link lives on the *colour*,
+  not the yarn, so one yarn can have one colour set aside for a hat and another for a
+  jumper. `yarn_colors.project_id` is `on delete set null`: deleting a project must
+  never take the yarn and its skeins with it, and `actions.deleteProject` mirrors that
+  locally in the same `commit`. Colours are ordered by `created_at` and have no
+  `position` column — unlike rounds, they cannot be reordered.
 - **Photos** → the private `prosjektbilder` bucket in Supabase Storage, under
   `<user-id>/<uuid>.jpg`, with the path stored on the project as `photoPath`.
   Storage policies check that the first folder segment is the caller's own id, so
@@ -160,7 +167,8 @@ Time is in **milliseconds** here; the Swift version used seconds.
 ### Routing is hash-based, and that is load-bearing
 
 `src/App.tsx` plus `useHashRoute()` implement routing over `window.location.hash`
-(`#/prosjekter`, `#/prosjekter/:id`, `#/prosjekter/:id/strikk`, `#/rad`) with no
+(`#/prosjekter`, `#/prosjekter/:id`, `#/prosjekter/:id/strikk`, `#/garn`,
+`#/garn/:id`, `#/rad`) with no
 router dependency. Two reasons, both of which break if you switch to path routing:
 
 1. Browser back and the iOS back-swipe work, replacing `NavigationStack`.

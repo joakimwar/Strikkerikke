@@ -435,6 +435,111 @@ textarea {
   padding: 4px 0 2px;
 }
 
+/* ---------- Garnlager ---------- */
+
+/* Ett fargekort i et garn. Samme oppbygning som .round. */
+.color {
+  padding: 10px 14px 12px;
+}
+
+.color + .color {
+  border-top: 1px solid var(--separator);
+}
+
+.color__head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.color__number {
+  flex: 1;
+  font-weight: 600;
+}
+
+.color .field {
+  padding: 4px 0 8px;
+}
+
+/* Etikett til venstre, kontroll til høyre – som en rad i et SwiftUI-skjema. */
+.color__line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 40px;
+}
+
+.color__label {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: 10px;
+  background: var(--separator);
+}
+
+.stepper__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 34px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--accent);
+}
+
+.stepper__button:active {
+  background: var(--separator);
+}
+
+.stepper__button:disabled {
+  opacity: 0.3;
+}
+
+.stepper__value {
+  min-width: 2.2em;
+  text-align: center;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Nedtrekksliste for prosjekt. appearance: none så den ikke arver Safaris
+ * systemutseende, med en egen liten pil på høyre side.
+ */
+.select {
+  flex: none;
+  max-width: 60%;
+  padding: 8px 30px 8px 12px;
+  border: 0;
+  border-radius: 10px;
+  background-color: var(--separator);
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23473324a8' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 16px 16px;
+  text-overflow: ellipsis;
+}
+
+.select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 /* ---------- Strikkemodus ---------- */
 
 .knit {

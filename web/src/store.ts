@@ -18,6 +18,8 @@ import {
   newProject,
   newRound,
   newStopwatch,
+  newYarn,
+  newYarnColor,
   isFinished,
   pause,
   restart,
@@ -26,6 +28,8 @@ import {
   type Round,
   type State,
   type Stopwatch,
+  type Yarn,
+  type YarnColor,
 } from './model'
 import { supabase } from './supabase'
 import { deletePhoto, uploadPhoto } from './photos'
@@ -61,6 +65,12 @@ export function useStore(): State {
 export function useProject(id: string | undefined): Project | undefined {
   const { projects } = useStore()
   return id ? projects.find((p) => p.id === id) : undefined
+}
+
+/** Leser ett garn, eller undefined hvis id-en ikke finnes. */
+export function useYarn(id: string | undefined): Yarn | undefined {
+  const { yarns } = useStore()
+  return id ? yarns.find((y) => y.id === id) : undefined
 }
 
 // MARK: - Skriving mot Supabase
@@ -128,15 +138,19 @@ export async function hydrate() {
   commit({ ...emptyState(), status: 'laster' })
 
   try {
-    const [projects, rounds, counter] = await Promise.all([
+    const [projects, rounds, counter, yarns, colors] = await Promise.all([
       supabase.from('projects').select('*').eq('user_id', id).order('created_at'),
       supabase.from('rounds').select('*').eq('user_id', id).order('position'),
       supabase.from('row_counter').select('*').eq('user_id', id).maybeSingle(),
+      supabase.from('yarns').select('*').eq('user_id', id).order('created_at'),
+      supabase.from('yarn_colors').select('*').eq('user_id', id).order('created_at'),
     ])
 
     if (projects.error) throw new Error(projects.error.message)
     if (rounds.error) throw new Error(rounds.error.message)
     if (counter.error) throw new Error(counter.error.message)
+    if (yarns.error) throw new Error(yarns.error.message)
+    if (colors.error) throw new Error(colors.error.message)
 
     // Brukeren kan ha rukket å logge ut mens vi ventet på svaret.
     if (userId !== id) return
@@ -147,6 +161,20 @@ export async function hydrate() {
       const list = byProject.get(row.project_id) ?? []
       list.push({ id: row.id, pattern: row.pattern })
       byProject.set(row.project_id, list)
+    }
+
+    // Og fargene på garn. Sortert på created_at, altså i den rekkefølgen de ble
+    // lagt inn – fargene kan ikke flyttes på, så de trenger ingen position.
+    const byYarn = new Map<string, YarnColor[]>()
+    for (const row of colors.data ?? []) {
+      const list = byYarn.get(row.yarn_id) ?? []
+      list.push({
+        id: row.id,
+        code: row.code,
+        skeins: row.skeins,
+        projectId: row.project_id,
+      })
+      byYarn.set(row.yarn_id, list)
     }
 
     commit({
@@ -161,6 +189,12 @@ export async function hydrate() {
           accumulated: row.stopwatch_accumulated,
           startedAt: fromIso(row.stopwatch_started_at),
         },
+      })),
+      yarns: (yarns.data ?? []).map((row) => ({
+        id: row.id,
+        name: row.name,
+        weight: row.weight,
+        colors: byYarn.get(row.id) ?? [],
       })),
       rowCount: counter.data?.row_count ?? 0,
       rowStopwatch: counter.data
@@ -213,6 +247,27 @@ function clampCurrentIndex(project: Project): Project {
 }
 
 const findProject = (id: string) => state.projects.find((p) => p.id === id)
+
+/** Erstatter ett garn via en oppdateringsfunksjon. */
+function mapYarn(id: string, update: (yarn: Yarn) => Yarn) {
+  commit({
+    ...state,
+    yarns: state.yarns.map((y) => (y.id === id ? update(y) : y)),
+  })
+}
+
+/** Erstatter én farge i ett garn. */
+function mapColor(yarnId: string, colorId: string, update: (color: YarnColor) => YarnColor) {
+  mapYarn(yarnId, (y) => ({
+    ...y,
+    colors: y.colors.map((c) => (c.id === colorId ? update(c) : c)),
+  }))
+}
+
+const findYarn = (id: string) => state.yarns.find((y) => y.id === id)
+
+const findColor = (yarnId: string, colorId: string) =>
+  findYarn(yarnId)?.colors.find((c) => c.id === colorId)
 
 /** Kolonnene som beskriver en stoppeklokke på et prosjekt. */
 const stopwatchColumns = (sw: Stopwatch) => ({
@@ -346,7 +401,23 @@ export const actions = {
     // men bildet ligger i storage og må ryddes eksplisitt.
     if (photoPath) void deletePhoto(photoPath)
 
-    commit({ ...state, projects: state.projects.filter((p) => p.id !== id) })
+    commit({
+      ...state,
+      projects: state.projects.filter((p) => p.id !== id),
+      // Garn som var satt av til prosjektet blir liggende i lageret med
+      // nøstene sine – det er bare koblingen som ryker. Databasen gjør det
+      // samme av seg selv (on delete set null); her speiler vi det lokalt så
+      // skjermen ikke viser navnet på et prosjekt som ikke finnes lenger.
+      yarns: state.yarns.map((yarn) =>
+        yarn.colors.some((c) => c.projectId === id)
+          ? {
+              ...yarn,
+              colors: yarn.colors.map((c) => (c.projectId === id ? { ...c, projectId: null } : c)),
+            }
+          : yarn,
+      ),
+    })
+
     write(() => supabase.from('projects').delete().eq('id', id))
   },
 
@@ -556,5 +627,121 @@ export const actions = {
       currentRowStopwatch: newStopwatch(),
     })
     saveRowCounter()
+  },
+
+  // MARK: - Garnlager
+
+  addYarn(name: string): Yarn {
+    const uid = userId
+    const yarn = newYarn(name.trim())
+    if (!uid) return yarn
+
+    commit({ ...state, yarns: [...state.yarns, yarn] })
+
+    write(() =>
+      supabase.from('yarns').insert({
+        id: yarn.id,
+        user_id: uid,
+        name: yarn.name,
+        weight: '',
+      }),
+    )
+
+    return yarn
+  },
+
+  deleteYarn(id: string) {
+    // Utsatte skrivinger på garnet og fargene ville truffet slettede rader.
+    const yarn = findYarn(id)
+    pending.delete(`yarn:${id}:name`)
+    pending.delete(`yarn:${id}:weight`)
+    yarn?.colors.forEach((color) => {
+      pending.delete(`color:${color.id}:code`)
+      pending.delete(`color:${color.id}:skeins`)
+    })
+
+    commit({ ...state, yarns: state.yarns.filter((y) => y.id !== id) })
+    // Fargene forsvinner av seg selv (on delete cascade). Prosjektene røres
+    // ikke – koblingen går bare én vei.
+    write(() => supabase.from('yarns').delete().eq('id', id))
+  },
+
+  setYarnName(id: string, name: string) {
+    mapYarn(id, (y) => ({ ...y, name }))
+    debounce(`yarn:${id}:name`, () => {
+      const yarn = findYarn(id)
+      if (!yarn) return
+      write(() => supabase.from('yarns').update({ name: yarn.name }).eq('id', id))
+    })
+  },
+
+  setYarnWeight(id: string, weight: string) {
+    mapYarn(id, (y) => ({ ...y, weight }))
+    debounce(`yarn:${id}:weight`, () => {
+      const yarn = findYarn(id)
+      if (!yarn) return
+      write(() => supabase.from('yarns').update({ weight: yarn.weight }).eq('id', id))
+    })
+  },
+
+  // MARK: - Farger
+
+  addColor(yarnId: string) {
+    const uid = userId
+    const yarn = findYarn(yarnId)
+    if (!uid || !yarn) return
+
+    const color = newYarnColor()
+    mapYarn(yarnId, (y) => ({ ...y, colors: [...y.colors, color] }))
+
+    write(() =>
+      supabase.from('yarn_colors').insert({
+        id: color.id,
+        yarn_id: yarnId,
+        user_id: uid,
+        code: color.code,
+        skeins: color.skeins,
+        project_id: color.projectId,
+      }),
+    )
+  },
+
+  setColorCode(yarnId: string, colorId: string, code: string) {
+    mapColor(yarnId, colorId, (c) => ({ ...c, code }))
+    debounce(`color:${colorId}:code`, () => {
+      const color = findColor(yarnId, colorId)
+      if (!color) return
+      write(() => supabase.from('yarn_colors').update({ code: color.code }).eq('id', colorId))
+    })
+  },
+
+  /** Endrer antall nøster. Negative tall finnes ikke – da er lageret tomt. */
+  setColorSkeins(yarnId: string, colorId: string, skeins: number) {
+    mapColor(yarnId, colorId, (c) => ({ ...c, skeins: Math.max(0, Math.floor(skeins)) }))
+    // Samme grunn som for fremdrift: raske trykk på − og + skal bli én
+    // skriving, med den ferskeste verdien.
+    debounce(
+      `color:${colorId}:skeins`,
+      () => {
+        const color = findColor(yarnId, colorId)
+        if (!color) return
+        write(() => supabase.from('yarn_colors').update({ skeins: color.skeins }).eq('id', colorId))
+      },
+      PROGRESS_DELAY,
+    )
+  },
+
+  /** Knytter fargen til et prosjekt, eller løsner den når `projectId` er null. */
+  setColorProject(yarnId: string, colorId: string, projectId: string | null) {
+    mapColor(yarnId, colorId, (c) => ({ ...c, projectId }))
+    write(() => supabase.from('yarn_colors').update({ project_id: projectId }).eq('id', colorId))
+  },
+
+  deleteColor(yarnId: string, colorId: string) {
+    pending.delete(`color:${colorId}:code`)
+    pending.delete(`color:${colorId}:skeins`)
+
+    mapYarn(yarnId, (y) => ({ ...y, colors: y.colors.filter((c) => c.id !== colorId) }))
+    write(() => supabase.from('yarn_colors').delete().eq('id', colorId))
   },
 }

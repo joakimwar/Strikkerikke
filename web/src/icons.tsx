@@ -136,6 +136,24 @@ export const Stack = (p: IconProps) => (
   </Svg>
 )
 
+/**
+ * Garnnøste: en sirkel med diagonale viklinger og en tråd som løper ut nederst.
+ *
+ * Stripene er korder regnet ut mot sirkelen (senter 10,10 og radius 7), ikke
+ * frihåndskurver – da treffer endepunktene kanten nøyaktig, og ingenting
+ * stikker utenfor når ikonet skaleres opp til tomtilstanden.
+ */
+export const Yarn = (p: IconProps) => (
+  <Svg {...p}>
+    <circle {...stroke} cx="10" cy="10" r="7.6" />
+    {/* Viklingen: tre parallelle korder fra øvre venstre mot nedre høyre.
+        Flere enn tre går i ett med hverandre og gjør nøstet til en fylt skive. */}
+    <path {...stroke} d="M5.05 5.05l9.9 9.9M4.2 9.2l6.6 6.6M9.2 4.2l6.6 6.6" />
+    {/* Tråden som henger ut, krøller seg én gang og ender i en tamp. */}
+    <path {...stroke} d="M16 16.1c2.8.6 4.6 1.6 4.6 2.7 0 .9-1.2 1.4-2.6 1.4h3.6" />
+  </Svg>
+)
+
 export const Hash = (p: IconProps) => (
   <Svg {...p}>
     <path {...stroke} d="M9.5 3.5L7.5 20.5M16.5 3.5l-2 17M4 9h16M3 15h16" />
