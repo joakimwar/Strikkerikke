@@ -63,6 +63,9 @@ export function ProjectList() {
               >
                 Logg ut
               </MenuItem>
+              {/* Midlertidig. Standalone-appen har ingen adresselinje å skrive
+                  #/diag i, så inngangen må ligge her. Fjernes med Diagnostics.tsx. */}
+              <MenuItem onClick={() => navigate('diag')}>Diagnose</MenuItem>
             </Menu>
           </>
         }

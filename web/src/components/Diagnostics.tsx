@@ -1,20 +1,26 @@
 /**
- * Midlertidig diagnoseskjerm på #/diag. Ikke lenket fra noe sted i appen.
+ * Midlertidig diagnoseskjerm. Nås fra konto-menyen på Prosjekter.
  *
- * Finnes fordi en feil bare viser seg på iPhone: topplinja blir usynlig når
- * siden er kort nok til at den ikke kan scrolles, og kommer tilbake hvis du
- * zoomer ut. Den lar seg ikke gjenskape i en nettleser på Mac eller PC, så vi
- * trenger de faktiske tallene fra telefonen for å skille mellom tre helt ulike
- * årsaker:
+ * Finnes fordi en feil bare viser seg på iPhone: topplinja blir usynlig, og
+ * kommer tilbake hvis du zoomer ut. To ting avgrenser den:
+ *   - den skjer bare når siden er kort nok til at den ikke kan scrolles
+ *   - den skjer bare i standalone («lagt til på Hjem-skjerm»), ikke i Safari
+ * Begge peker samme vei: uten adresselinje er det mer plass, så siden slutter
+ * å scrolle. Det er trolig én betingelse, ikke to.
  *
- *   1. Siden er skalert (zoom)      → visualViewport.scale er ikke 1
- *   2. Innholdet er skjøvet sidelengs → scrollWidth > clientWidth
- *   3. Elementene ligger riktig, men males ikke → alle tall stemmer likevel
+ * Avlesningen skiller mellom tre helt ulike årsaker:
+ *   1. Siden er skalert            → zoom er ikke 1.000
+ *   2. Innholdet er skjøvet        → dokument bredere enn vindu, eller offset
+ *   3. Alt ligger riktig, males ei → alle tall stemmer, men linja er usynlig
  *
- * Nummer 3 er den vi mistenker, og den kan bare påvises ved at topplinjas
- * koordinater er riktige samtidig som den er usynlig på skjermen.
+ * Nummer 3 er mistanken. Den kan bare påvises ved at topplinjas koordinater er
+ * riktige samtidig som den ikke synes.
  *
- * Slett hele fila igjen når feilen er ute av verden.
+ * VIKTIG: hele skjermen må få plass uten scroll. Kan siden scrolles, forsvinner
+ * betingelsen feilen oppstår under, og vi måler ingenting.
+ *
+ * Slett denne fila, ruten i App.tsx og menyvalget i ProjectList når feilen er
+ * ute av verden.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -23,76 +29,75 @@ import { Menu, MenuItem, Navbar } from './chrome'
 
 type Rad = { navn: string; verdi: string; mistenkelig?: boolean }
 
-/** Leser av alt vi trenger i ett øyeblikk. */
 function måling(navbar: HTMLElement | null): Rad[] {
   const doc = document.documentElement
   const vv = window.visualViewport
+  const standalone =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true
+
+  // env() kan ikke leses direkte, så vi lar CSS regne den ut for oss.
+  const probe = document.createElement('div')
+  probe.style.cssText = 'position:absolute;top:-9999px;height:env(safe-area-inset-top)'
+  document.body.appendChild(probe)
+  const safeTop = probe.getBoundingClientRect().height
+  probe.remove()
 
   const rader: Rad[] = [
-    { navn: 'Skjerm (innerWidth × innerHeight)', verdi: `${window.innerWidth} × ${window.innerHeight}` },
+    { navn: 'modus', verdi: standalone ? 'STANDALONE (hjem-app)' : 'nettleser' },
+    { navn: 'safe-area topp', verdi: `${safeTop.toFixed(1)}px` },
     {
-      navn: 'Zoom (visualViewport.scale)',
-      verdi: vv ? vv.scale.toFixed(3) : 'ikke støttet',
-      // Alt annet enn 1 betyr at siden faktisk er skalert.
+      navn: 'zoom',
+      verdi: vv ? vv.scale.toFixed(3) : '–',
       mistenkelig: vv ? Math.abs(vv.scale - 1) > 0.001 : false,
     },
     {
-      navn: 'Synlig felt (visualViewport)',
-      verdi: vv ? `${Math.round(vv.width)} × ${Math.round(vv.height)}` : '–',
+      navn: 'vindu',
+      verdi: `${window.innerWidth}x${window.innerHeight}`,
     },
     {
-      navn: 'Forskyvning (visualViewport offset)',
-      verdi: vv ? `venstre ${Math.round(vv.offsetLeft)}, topp ${Math.round(vv.offsetTop)}` : '–',
+      navn: 'synlig felt',
+      verdi: vv ? `${Math.round(vv.width)}x${Math.round(vv.height)} @${Math.round(vv.offsetLeft)},${Math.round(vv.offsetTop)}` : '–',
       mistenkelig: vv ? vv.offsetLeft !== 0 || vv.offsetTop !== 0 : false,
     },
     {
-      navn: 'Bredde: dokument vs. vindu',
-      verdi: `${doc.scrollWidth} vs. ${doc.clientWidth}`,
-      // Større dokument enn vindu = noe stikker ut i siden.
+      navn: 'dokument b/h',
+      verdi: `${doc.scrollWidth}/${doc.scrollHeight} vs ${doc.clientWidth}/${doc.clientHeight}`,
       mistenkelig: doc.scrollWidth > doc.clientWidth,
     },
     {
-      navn: 'Høyde: dokument vs. vindu',
-      verdi: `${doc.scrollHeight} vs. ${doc.clientHeight}`,
+      navn: 'kan scrolle',
+      verdi: doc.scrollHeight > doc.clientHeight ? 'JA' : 'NEI  <-- feilbetingelse',
     },
-    {
-      navn: 'Kan siden scrolles?',
-      verdi: doc.scrollHeight > doc.clientHeight ? 'JA' : 'NEI',
-    },
-    { navn: 'Rullet ned (scrollY)', verdi: String(Math.round(window.scrollY)) },
   ]
 
   if (navbar) {
     const r = navbar.getBoundingClientRect()
-    const tittel = navbar.querySelector('.navbar__title')?.getBoundingClientRect()
-    const høyre = navbar.querySelector('.navbar__trailing')?.getBoundingClientRect()
-    const stil = window.getComputedStyle(navbar)
+    const t = navbar.querySelector('.navbar__title')?.getBoundingClientRect()
+    const h = navbar.querySelector('.navbar__trailing')?.getBoundingClientRect()
+    const s = window.getComputedStyle(navbar)
 
     rader.push(
-      { navn: '— topplinja over —', verdi: '' },
       {
-        navn: 'Topplinje (x, y, bredde, høyde)',
-        verdi: `${Math.round(r.x)}, ${Math.round(r.y)}, ${Math.round(r.width)}, ${Math.round(r.height)}`,
-        // Ligger den utenfor skjermen, er det layout og ikke maling.
-        mistenkelig: r.y < -1 || r.x < -1 || r.width < 100,
+        navn: 'topplinje x,y,b,h',
+        verdi: `${Math.round(r.x)},${Math.round(r.y)},${Math.round(r.width)},${Math.round(r.height)}`,
+        mistenkelig: r.y < -1 || r.x < -1 || r.width < 100 || r.height < 10,
       },
       {
-        navn: 'Tittel (x, y, bredde)',
-        verdi: tittel
-          ? `${Math.round(tittel.x)}, ${Math.round(tittel.y)}, ${Math.round(tittel.width)}`
-          : 'finnes ikke',
-        mistenkelig: tittel ? tittel.width < 10 : true,
+        navn: 'tittel x,y,b',
+        verdi: t ? `${Math.round(t.x)},${Math.round(t.y)},${Math.round(t.width)}` : 'mangler',
+        mistenkelig: !t || t.width < 10,
       },
       {
-        navn: 'Knapper til høyre (x, y, bredde)',
-        verdi: høyre
-          ? `${Math.round(høyre.x)}, ${Math.round(høyre.y)}, ${Math.round(høyre.width)}`
-          : 'finnes ikke',
-        mistenkelig: høyre ? høyre.width < 10 || høyre.x > window.innerWidth : true,
+        navn: 'knapper x,y,b',
+        verdi: h ? `${Math.round(h.x)},${Math.round(h.y)},${Math.round(h.width)}` : 'mangler',
+        mistenkelig: !h || h.width < 10 || h.x > window.innerWidth,
       },
-      { navn: 'position / z-index', verdi: `${stil.position} / ${stil.zIndex}` },
-      { navn: 'opacity / visibility', verdi: `${stil.opacity} / ${stil.visibility}` },
-      { navn: 'transform', verdi: stil.transform },
+      {
+        navn: 'synlighet',
+        verdi: `${s.position} z${s.zIndex} op${s.opacity} ${s.visibility}`,
+        mistenkelig: s.opacity !== '1' || s.visibility !== 'visible',
+      },
     )
   }
 
@@ -100,12 +105,11 @@ function måling(navbar: HTMLElement | null): Rad[] {
 }
 
 export function Diagnostics() {
-  const navbarRef = useRef<HTMLDivElement>(null)
+  const ref = useRef<HTMLDivElement>(null)
   const [rader, setRader] = useState<Rad[]>([])
 
   const mål = useCallback(() => {
-    // Topplinja er første <header> inne i innpakningen.
-    setRader(måling(navbarRef.current?.querySelector('header') ?? null))
+    setRader(måling(ref.current?.querySelector('header') ?? null))
   }, [])
 
   useEffect(() => {
@@ -125,8 +129,8 @@ export function Diagnostics() {
 
   return (
     <>
-      {/* Nøyaktig samme markup som Prosjekter-skjermen, så feilen oppfører seg likt. */}
-      <div ref={navbarRef}>
+      {/* Samme markup som Prosjekter, så feilen oppfører seg likt her. */}
+      <div ref={ref}>
         <Navbar
           title="Prosjekter"
           large
@@ -136,7 +140,7 @@ export function Diagnostics() {
                 <Plus size={24} />
               </button>
               <Menu label={<Person size={24} />}>
-                <MenuItem onClick={() => undefined}>Testvalg</MenuItem>
+                <MenuItem onClick={() => undefined}>Test</MenuItem>
               </Menu>
             </>
           }
@@ -144,37 +148,31 @@ export function Diagnostics() {
       </div>
 
       <main className="content">
-        <p style={{ fontSize: 15, color: 'var(--text-secondary)' }}>
-          Ser topplinja over denne teksten tom ut? Ta et skjermbilde av hele siden nå.
-          Står det <strong>NEI</strong> på «Kan siden scrolles?» samtidig som tallene for
-          tittel og knapper ser riktige ut, er elementene der – de males bare ikke.
+        <p style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--text-secondary)' }}>
+          Er topplinja over tom? Ta skjermbilde nå.
         </p>
 
-        <div className="card">
+        <div
+          style={{
+            fontFamily: 'ui-monospace, Menlo, monospace',
+            fontSize: 12,
+            lineHeight: 1.5,
+            background: 'var(--card)',
+            borderRadius: 12,
+            padding: '10px 12px',
+          }}
+        >
           {rader.map((rad) => (
-            <div className="row" key={rad.navn}>
-              <span className="row__grow">
-                <span className="row__subtitle" style={{ marginTop: 0 }}>
-                  {rad.navn}
-                </span>
-                <span
-                  className="row__title"
-                  style={{
-                    fontVariantNumeric: 'tabular-nums',
-                    color: rad.mistenkelig ? 'var(--destructive)' : undefined,
-                  }}
-                >
-                  {rad.verdi}
-                </span>
-              </span>
+            <div key={rad.navn} style={{ color: rad.mistenkelig ? 'var(--destructive)' : undefined }}>
+              {rad.navn}: {rad.verdi}
             </div>
           ))}
         </div>
 
         <button
           type="button"
-          className="button button--prominent"
-          style={{ marginTop: 16 }}
+          className="button button--plain"
+          style={{ marginTop: 8 }}
           onClick={mål}
         >
           Mål på nytt
