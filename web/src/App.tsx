@@ -28,7 +28,6 @@ import { KnitMode } from './components/KnitMode'
 import { RowCounter } from './components/RowCounter'
 import { YarnList } from './components/YarnList'
 import { YarnDetail } from './components/YarnDetail'
-import { Diagnostics } from './components/Diagnostics'
 
 export function App() {
   const { session, status: authStatus } = useAuth()
@@ -137,9 +136,6 @@ export function App() {
   )
 
   function renderScreen() {
-    // Midlertidig, ikke lenket fra noe sted – se Diagnostics.tsx.
-    if (segments[0] === 'diag') return <Diagnostics />
-
     if (tab === 'rad') return <RowCounter />
 
     if (tab === 'garn') {
