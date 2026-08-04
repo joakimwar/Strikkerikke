@@ -525,7 +525,13 @@ textarea {
   background-color: var(--separator);
   color: var(--text);
   font: inherit;
-  font-size: 15px;
+  /*
+   * Må være minst 16px. Safari på iPhone zoomer inn på siden når et skjemafelt
+   * med mindre skrift får fokus, og zoomer ikke ut igjen etterpå – da havner
+   * tittelen og knappene i topplinja utenfor det synlige området, helt til du
+   * kniper deg ut manuelt. Ser lokalt ut som et rent smaksvalg; er det ikke.
+   */
+  font-size: 16px;
   appearance: none;
   -webkit-appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23473324a8' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
@@ -761,7 +767,8 @@ textarea {
   border: 1px solid var(--separator);
   border-radius: 10px;
   background: var(--background);
-  font-size: 16px;
+  /* Lå på grensa (16px) – se merknaden ved .select om iOS-zoom. */
+  font-size: 17px;
   margin-bottom: 4px;
 }
 

@@ -232,6 +232,14 @@ light** (`color-scheme: light`), matching `.preferredColorScheme(.light)`, and
 does not turn the cream palette to mud. Rounded type comes from the CSS `ui-rounded`
 generic family, which Safari supports — not a downloaded webfont.
 
+**No focusable form control may go below 16px.** Safari on iPhone zooms the page in
+when an `input`, `textarea` or `select` with smaller text takes focus, and does not
+zoom back out. The page then stays scaled, so the sticky navbar's title and buttons
+sit outside the visible area until the user pinches out — it reads as "the header
+vanished", not as a zoom. A `.select` at 15px caused exactly that. This is invisible
+on a desktop browser, so it will not show up in local testing; `.field` (17px) and
+`.dialog__input` (17px) are deliberately above the line.
+
 ## Deliberate differences from the iOS app
 
 Do not "fix" these back:
