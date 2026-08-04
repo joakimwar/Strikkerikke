@@ -25,7 +25,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Person, Plus } from '../icons'
-import { Menu, MenuItem, Navbar } from './chrome'
+import { Dialog, Menu, MenuItem, Navbar } from './chrome'
 
 type Rad = { navn: string; verdi: string; mistenkelig?: boolean }
 
@@ -107,10 +107,27 @@ function måling(navbar: HTMLElement | null): Rad[] {
 export function Diagnostics() {
   const ref = useRef<HTMLDivElement>(null)
   const [rader, setRader] = useState<Rad[]>([])
+  const [dialogÅpen, setDialogÅpen] = useState(false)
+  const [egetLag, setEgetLag] = useState(false)
+
+  const header = () => ref.current?.querySelector('header') as HTMLElement | null
 
   const mål = useCallback(() => {
     setRader(måling(ref.current?.querySelector('header') ?? null))
   }, [])
+
+  /**
+   * Kandidatfiks B: tving fram en ny opptegning uten å røre layouten.
+   * Å skru display av og på igjen får WebKit til å tegne elementet på nytt.
+   */
+  const tvingOpptegning = () => {
+    const el = header()
+    if (!el) return
+    el.style.display = 'none'
+    void el.offsetHeight // leser fram en reflow
+    el.style.display = ''
+    mål()
+  }
 
   useEffect(() => {
     mål()
