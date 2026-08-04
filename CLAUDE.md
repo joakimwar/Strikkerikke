@@ -234,11 +234,14 @@ generic family, which Safari supports — not a downloaded webfont.
 
 **No focusable form control may go below 16px.** Safari on iPhone zooms the page in
 when an `input`, `textarea` or `select` with smaller text takes focus, and does not
-zoom back out. The page then stays scaled, so the sticky navbar's title and buttons
-sit outside the visible area until the user pinches out — it reads as "the header
-vanished", not as a zoom. A `.select` at 15px caused exactly that. This is invisible
-on a desktop browser, so it will not show up in local testing; `.field` (17px) and
-`.dialog__input` (17px) are deliberately above the line.
+zoom back out afterwards. Desktop browsers do not do this at all, so it never shows
+up in local testing. `.field` (17px), `.dialog__input` (17px) and `.select` (16px)
+are deliberately above the line.
+
+This is worth keeping on its own merits, but note it is **not** the cause of the
+iPhone header bug described in `docs/bug-topplinje-iphone.md` — measurement on the
+device showed the page was not zoomed at all. Do not treat the 16px rule as having
+fixed that.
 
 ## Deliberate differences from the iOS app
 
